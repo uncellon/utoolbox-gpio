@@ -1,6 +1,6 @@
 /******************************************************************************
  * 
- * Copyright (C) 2022 Dmitry Plastinin
+ * Copyright (C) 2023 Dmitry Plastinin
  * Contact: uncellon@yandex.ru, uncellon@gmail.com, uncellon@mail.ru
  * 
  * This file is part of the UT GPIO library.
@@ -29,70 +29,54 @@
 
 namespace UT {
 
-class Gpio {
+class GPIO {
 public:
-    enum OpCodes {
-        kSuccess,
-        kDeviceNotOpened,
-        kFailedToOpen,
-        kFailedToSetDirection,
-        kFailedToSetValue,
-        kPinIsNotOutput,
-        kPinIsNotInput,
-        kFailedToSetBiasMode,
-        kFailedToGetValue,
-        kInvalidValue,
-        kAlreadyOpened,
-        kFailedToCreatePipe,
-        kPollingError
-    };
-
     enum Value {
-        kIdle,
-        kLow,
-        kHigh
+        LOW,
+        HIGH
     };
 
     enum Direction {
-        kInput,
-        kOutput
+        INPUT,
+        OUTPUT
     };
     
-    enum BiasMode {
-        kPullDown,
-        kPullUp
+    enum Type {
+        PULL_DOWN,
+        PULL_UP
     };
 
     /**************************************************************************
      * Constructors / Destructors
      *************************************************************************/
 
-    Gpio() = default;
-    ~Gpio();
+    GPIO() = default;
+    GPIO(const GPIO&) = delete;
+    GPIO(GPIO&&) = delete;
+    ~GPIO();
 
     /**************************************************************************
      * Methods
      *************************************************************************/
 
-    int open(const std::string& dev);
+    void open(const std::string& dev);
     void close();
 
     /**************************************************************************
      * Accessors / Mutators
      *************************************************************************/
 
-    Value value(int pin);
+    Value getValue(int pin);
     void setValue(int pin, Value value);
 
     void setDirection(int pin, Direction direction);
 
-    void setBiasMode(int pin, BiasMode mode);
+    void setPullMode(int pin, Type mode);
 
     /**************************************************************************
      * Events
      *************************************************************************/
 
-    Event<OpCodes> onError;
     Event<int, Value> onInputChanged;
 
 protected:
@@ -106,23 +90,20 @@ protected:
      * Members
      *************************************************************************/
 
-    int m_fd = 0;
-    int m_pipe[2] = { 0, 0 };
+    bool mRunning = false;
+    int mFd = 0;
+    int mPipe[2] = { 0, 0 };
+    std::map<int, Direction> mDirectionsByPins;
+    std::map<int, int> mFdsByPins; /// for quick access to GPIO num from polling
+    std::map<int, int> mPinsByFds; /// for quick access to GPIO num from polling
+    std::map<int, unsigned int> mValuesByFds;
+    std::mutex mInterruptMutex;
+    std::mutex mPfdsMutex;
+    std::mutex mOpenCloseMutex;
+    std::thread* mPollingThread = nullptr;
+    std::vector<pollfd> mPfds;
 
-    bool m_threadRunning = false;
-
-    std::map<int, int> m_fdsByPins; /// for quick access to GPIO num from polling
-    std::map<int, int> m_pinsByFds; /// for quick access to GPIO num from polling
-    std::map<int, Direction> m_directionsByPins;
-    std::map<int, unsigned int> m_valuesByFds;
-
-    std::thread* m_pollingThread = nullptr;
-    std::vector<pollfd> m_pollFds;
-
-    std::mutex m_interruptMutex;
-    std::mutex m_workerThreadMutex;
-    std::mutex m_pollfdsMutex;
-}; // class Gpio
+}; // class GPIO
 
 } // namespace UT
 

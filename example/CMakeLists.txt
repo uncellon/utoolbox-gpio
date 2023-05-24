@@ -1,9 +1,5 @@
-set(EXAMPLE_PROJECT UTGpioExample)
+set(EXAMPLE_PROJECT ${PROJECT_NAME}Example)
 
-file(GLOB_RECURSE EXAMPLE_SOURCES LIST_DIRECTORIES false *.h *.cpp)
-
-set(SOURCES ${EXAMPLE_SOURCES})
-
-add_executable(${EXAMPLE_PROJECT} ${EXAMPLE_SOURCES})
+add_executable(${EXAMPLE_PROJECT} main.cpp)
 
 target_link_libraries(${EXAMPLE_PROJECT} PUBLIC ${PROJECT_NAME})

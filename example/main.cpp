@@ -7,46 +7,17 @@ using namespace UT;
 int main(int argc, char *argv[]) {
     EventLoop ev;
 
-    Gpio gpio;
-    
-    // Register error handler
-    gpio.onError.addEventHandler(&ev, 
-        [] (Gpio::OpCodes error) {
-            std::cout << "error occurred: ";
-            switch (error) {
-            case Gpio::OpCodes::kFailedToOpen:
-                std::cout << "failed to open device\n";
-                break;
-            
-            case Gpio::OpCodes::kFailedToSetDirection:
-                std::cout << "set pin mode failed\n";
-                break;
-
-            case Gpio::OpCodes::kFailedToSetValue:
-                std::cout << "set pin value failed\n";
-                break;
-
-            case Gpio::OpCodes::kPinIsNotOutput:
-                std::cout << "attempt to set value of non-output pin\n";
-                break;
-
-            default:
-                std::cout << "unknown error\n";
-                break;
-            }
-            exit(EXIT_FAILURE);
-        }
-    );
+    GPIO gpio;
 
     // Register input changed handler
-    gpio.onInputChanged.addEventHandler(&ev, 
-        [] (int pin, Gpio::Value value) {
+    gpio.onInputChanged.addEventHandler(EventLoop::getMainInstance(), 
+        [] (int pin, GPIO::Value value) {
             switch (value) {
-            case Gpio::kLow:
+            case GPIO::LOW:
                 std::cout << pin << " " << "low\n";
                 break;
 
-            case Gpio::kHigh:
+            case GPIO::HIGH:
                 std::cout << pin << " " << "high\n";
                 break;
             default:
@@ -56,27 +27,32 @@ int main(int argc, char *argv[]) {
     );
 
     // Open device
-    gpio.open("/dev/gpiochip0");
+    try {
+        gpio.open("/dev/gpiochip0");
+    } catch (const std::exception& e) {
+        std::cerr << "GPIO error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 
     // Set gpio 4 output mode
-    gpio.setDirection(4, Gpio::kOutput);
+    gpio.setDirection(4, GPIO::OUTPUT);
 
     // Set gpio 4 output value
-    gpio.setValue(4, Gpio::kLow);
+    gpio.setValue(4, GPIO::LOW);
 
     // Set gpio 21 input mode
-    gpio.setDirection(21, Gpio::kInput);
+    gpio.setDirection(21, GPIO::INPUT);
 
     // Set gpio 21 bias mode
-    gpio.setBiasMode(21, Gpio::kPullUp);
+    gpio.setPullMode(21, GPIO::PULL_UP);
 
     // Get current 21 value
-    auto current = gpio.value(21);
+    auto current = gpio.getValue(21);
     switch (current) {
-        case Gpio::Value::kHigh:
+        case GPIO::Value::HIGH:
             std::cout << "21 is high now\n";
             break;
-        case Gpio::Value::kLow:
+        case GPIO::Value::LOW:
             std::cout << "21 is low now\n";
             break;
         default:
@@ -96,11 +72,11 @@ int main(int argc, char *argv[]) {
         std::cin >> input;
         if (input == 'y') {
             std::cout << "switch to on\n";
-            gpio.setValue(4, Gpio::Value::kHigh);
+            gpio.setValue(4, GPIO::Value::HIGH);
         } else if (input == 'n') {
             std::cout << "switch to off\n";
             std::cout << "n\n";
-            gpio.setValue(4, Gpio::Value::kLow);
+            gpio.setValue(4, GPIO::Value::LOW);
         } else if (input == 'h') {
             std::cout << help;
         } else if (input == 'q') {
