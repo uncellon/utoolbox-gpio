@@ -56,6 +56,7 @@ public:
      * @return GPIO::Opcode
      *     - kSuccess - device successfully open
      *     - kAlreadyOpen - the instance has already opened a GPIO device
+     *     - kDeviceNotFound - device not exist
      *     - kSyscallError - pipe(...) or open(...) failed
      */
     Opcode open(const std::string& dev);
@@ -151,10 +152,11 @@ protected:
 enum class GPIO::Opcode {
     kSuccess,
     kAlreadyOpen,
+    kDeviceNotFound,
     kDeviceNotOpen,
-    kPinNotOutput,
-    kPinNotInput,
     kInvalidValue,
+    kPinNotInput,
+    kPinNotOutput,
     kSyscallError
 }; // enum class GPIO::Opcode
 

@@ -59,7 +59,12 @@ GPIO::Opcode GPIO::open(const std::string& dev) {
     // Open device
     mFd = ::open(dev.c_str(), O_RDWR);
     if (mFd == -1) {
-        return Opcode::kSyscallError;
+        switch (errno) {
+        case ENOENT:
+            return Opcode::kDeviceNotFound;
+        default:
+            return Opcode::kSyscallError;
+        }
     }
 
     mPfds.clear();

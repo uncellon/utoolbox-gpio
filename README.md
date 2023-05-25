@@ -76,10 +76,10 @@ gpio.onInputChanged.addEventHandler(EventLoop::getMainInstance(),
     [] (int pin, UT::GPIO::Value value) {
         switch (value) {
         case UT::GPIO::Value::kLow:
-            std::cout << pin << " " << "low\n";
+            std::cout << pin << " " << " is low\n";
             break;
         case UT::GPIO::Value::kHigh:
-            std::cout << pin << " " << "high\n";
+            std::cout << pin << " " << " is high\n";
             break;
         default:
             break;
