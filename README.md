@@ -1,11 +1,11 @@
-# Uncellon's Toolbox UT::GPIO
+# Uncellon's Toolbox GPIO
 
 ![UToolbox Logo](logo.png)
 
 - [Description](#description)
 - [Prerequisites](#prerequisites)
 - [Examples](#examples)
-    - [Connect to the UT::GPIO](#connect-to-the-gpio)
+    - [Connect to the GPIO](#connect-to-the-gpio)
     - [Set pin direction](#set-pin-direction)
     - [Set pull mode](#set-pull-mode)
     - [Set output value](#set-output-value)
@@ -15,7 +15,7 @@
 
 ## Description
 
-The UToolbox UT::GPIO library implements an event-driven interface for accessing GPIOs (for example, Raspberry Pi) through the userspace ABI v2.
+The UToolbox GPIO library implements an event-driven interface for accessing GPIOs (for example, Raspberry Pi) through the userspace ABI v2.
 
 ## Prerequisites
 
