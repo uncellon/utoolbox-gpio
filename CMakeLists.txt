@@ -13,14 +13,14 @@ file(GLOB HEADERS include/ut/gpio/*.h)
 file(GLOB SOURCES include/ut/gpio/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
-add_library(UT::Gpio ALIAS ${PROJECT_NAME})
+add_library(UT::GPIO ALIAS ${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC UT::Core)
 
 set_target_properties(
     ${PROJECT_NAME} PROPERTIES 
         PUBLIC_HEADER "${HEADERS}"
-        EXPORT_NAME Gpio
+        EXPORT_NAME GPIO
 )
 
 target_include_directories(
