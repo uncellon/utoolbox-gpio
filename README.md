@@ -1,11 +1,11 @@
-# Uncellon's Toolbox GPIO
+# Uncellon's Toolbox UT::GPIO
 
 ![UToolbox Logo](logo.png)
 
 - [Description](#description)
 - [Prerequisites](#prerequisites)
 - [Examples](#examples)
-    - [Connect to the GPIO](#connect-to-the-gpio)
+    - [Connect to the UT::GPIO](#connect-to-the-gpio)
     - [Set pin direction](#set-pin-direction)
     - [Set pull mode](#set-pull-mode)
     - [Set output value](#set-output-value)
@@ -15,7 +15,7 @@
 
 ## Description
 
-The UToolbox GPIO library implements an event-driven interface for accessing GPIOs (for example, Raspberry Pi) through the userspace ABI v2.
+The UToolbox UT::GPIO library implements an event-driven interface for accessing GPIOs (for example, Raspberry Pi) through the userspace ABI v2.
 
 ## Prerequisites
 
@@ -31,11 +31,10 @@ The UToolbox GPIO library implements an event-driven interface for accessing GPI
 ```cpp
 ...
 UT::GPIO gpio;
-try {
-    gpio.open("/dev/gpiochip0");
-} catch (const std::exception& e) {
-    std::cerr << "GPIO error: " << e.what() << std::endl;
-    return EXIT_FAILURE;
+auto ret = gpio.open("/dev/gpiochip0");
+if (ret != UT::GPIO::Opcode::kSuccess) {
+    std::cerr << "Failed to open UT::GPIO device\n";
+    return -1;
 }
 ...
 ```
@@ -44,8 +43,9 @@ try {
 
 ```cpp
 ...
-gpio.setDirection(4, GPIO::OUTPUT); // Set pin with number 4 as output
-gpio.setDirection(5, GPIO::INPUT); // Set pin with number 5 as input
+ret = gpio.setDirection(4, UT::GPIO::Direction::kOutput); // Set pin with number 4 as output
+...
+ret = gpio.setDirection(5, UT::GPIO::Direction::kInput); // Set pin with number 5 as input
 ...
 ```
 
@@ -53,32 +53,32 @@ gpio.setDirection(5, GPIO::INPUT); // Set pin with number 5 as input
 
 ```cpp
 ...
-gpio.setPullMode(5, GPIO::PULL_UP); // Set pin 5 in pull-up mode
+ret = gpio.setPullMode(5, UT::GPIO::PullMode::kPullUp); // Set pin 5 in pull-up mode
 ...
 ```
 
 ### Set output value
 
 ```cpp
-gpio.setValue(4, GPIO::LOW);
+ret = gpio.setValue(4, UT::GPIO::Value::kLow);
 ```
 
 ### Get output value
 
 ```cpp
-gpio.getValue(5);
+auto value = gpio.getValue(5);
 ```
 
 ### Watch inputs changes
 
 ```cpp
 gpio.onInputChanged.addEventHandler(EventLoop::getMainInstance(), 
-    [] (int pin, GPIO::Value value) {
+    [] (int pin, UT::GPIO::Value value) {
         switch (value) {
-        case GPIO::LOW:
+        case UT::GPIO::Value::kLow:
             std::cout << pin << " " << "low\n";
             break;
-        case GPIO::HIGH:
+        case UT::GPIO::Value::kHigh:
             std::cout << pin << " " << "high\n";
             break;
         default:

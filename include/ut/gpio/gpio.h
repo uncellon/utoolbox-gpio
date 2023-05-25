@@ -31,47 +31,90 @@ namespace UT {
 
 class GPIO {
 public:
-    enum Value {
-        LOW,
-        HIGH
-    };
-
-    enum Direction {
-        INPUT,
-        OUTPUT
-    };
-    
-    enum Type {
-        PULL_DOWN,
-        PULL_UP
-    };
+    enum class Opcode;
+    enum class Value;
+    enum class Direction;
+    enum class PullMode;
 
     /**************************************************************************
      * Constructors / Destructors
      *************************************************************************/
 
     GPIO() = default;
-    GPIO(const GPIO&) = delete;
-    GPIO(GPIO&&) = delete;
+    GPIO(const GPIO& other) = delete;
+    GPIO(GPIO&& other) = delete;
     ~GPIO();
 
     /**************************************************************************
      * Methods
      *************************************************************************/
 
-    void open(const std::string& dev);
+    /**
+     * @brief Open GPIO device
+     * 
+     * @param dev path to the device
+     * @return GPIO::Opcode
+     *     - kSuccess - device successfully open
+     *     - kAlreadyOpen - the instance has already opened a GPIO device
+     *     - kSyscallError - pipe(...) or open(...) failed
+     */
+    Opcode open(const std::string& dev);
+
     void close();
 
     /**************************************************************************
      * Accessors / Mutators
      *************************************************************************/
 
+    /**
+     * @brief Get current value of input pin
+     * 
+     * @param pin pin to change
+     * @return GPIO::Value
+     *     - kLow - logical 0
+     *     - kHigh - logical 1
+     *     - kIdle - undefined value or error occured
+     */
     Value getValue(int pin);
-    void setValue(int pin, Value value);
 
-    void setDirection(int pin, Direction direction);
+    /**
+     * @brief Set output pin value
+     * 
+     * @param pin pin to change
+     * @param value value to set
+     * @return GPIO::Opcode 
+     *     - kSuccess - value successfully set
+     *     - kDeviceNotOpen - GPIO device is not open
+     *     - kInvalidValue - attempt to set an invalid value
+     *     - kPinNotOutput - pin is not configured as an output
+     *     - kSyscallerror - ioctl(...) failed
+     */
+    Opcode setValue(int pin, Value value);
 
-    void setPullMode(int pin, Type mode);
+    /**
+     * @brief Set direction (input or output) for pin
+     * 
+     * @param pin pin to change
+     * @param direction direction
+     * @return GPIO::Opcode
+     *     - kSuccess - direction successfully changed
+     *     - kDeviceNotOpen - GPIO device is not open
+     *     - kSyscallerror - ioctl(...) failed
+     */
+    Opcode setDirection(int pin, Direction direction);
+
+    /**
+     * @brief Set pull mode (pull-up or pull-down) for a input pin
+     * 
+     * @param pin pin to change
+     * @param mode pull mode
+     * @return GPIO::Opcode
+     *     - kSuccess - pull mode successfully set
+     *     - kDeviceNotOpen - GPIO device is not open
+     *     - kPinNotInput - pin is not configured as an input
+     *     - kSyscallerror - ioctl(...) failed
+     */
+    Opcode setPullMode(int pin, PullMode mode);
 
     /**************************************************************************
      * Events
@@ -91,19 +134,45 @@ protected:
      *************************************************************************/
 
     bool mRunning = false;
-    int mFd = 0;
+    int mFd = -1;
     int mPipe[2] = { 0, 0 };
     std::map<int, Direction> mDirectionsByPins;
     std::map<int, int> mFdsByPins; /// for quick access to GPIO num from polling
     std::map<int, int> mPinsByFds; /// for quick access to GPIO num from polling
     std::map<int, unsigned int> mValuesByFds;
     std::mutex mInterruptMutex;
-    std::mutex mPfdsMutex;
     std::mutex mOpenCloseMutex;
+    std::mutex mPfdsMutex;
     std::thread* mPollingThread = nullptr;
     std::vector<pollfd> mPfds;
 
 }; // class GPIO
+
+enum class GPIO::Opcode {
+    kSuccess,
+    kAlreadyOpen,
+    kDeviceNotOpen,
+    kPinNotOutput,
+    kPinNotInput,
+    kInvalidValue,
+    kSyscallError
+}; // enum class GPIO::Opcode
+
+enum class GPIO::Value {
+    kLow,
+    kHigh,
+    kIdle
+}; // enum class GPIO::Value
+
+enum class GPIO::Direction {
+    kInput,
+    kOutput
+}; // enum class GPIO::Direction
+
+enum class GPIO::PullMode {
+    kPullDown,
+    kPullUp
+}; // enum class GPIO::Type
 
 } // namespace UT
 

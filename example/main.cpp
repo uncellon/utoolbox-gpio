@@ -13,11 +13,10 @@ int main(int argc, char *argv[]) {
     gpio.onInputChanged.addEventHandler(EventLoop::getMainInstance(), 
         [] (int pin, GPIO::Value value) {
             switch (value) {
-            case GPIO::LOW:
+            case GPIO::Value::kLow:
                 std::cout << pin << " " << "low\n";
                 break;
-
-            case GPIO::HIGH:
+            case GPIO::Value::kHigh:
                 std::cout << pin << " " << "high\n";
                 break;
             default:
@@ -35,25 +34,25 @@ int main(int argc, char *argv[]) {
     }
 
     // Set gpio 4 output mode
-    gpio.setDirection(4, GPIO::OUTPUT);
+    gpio.setDirection(4, GPIO::Direction::kOutput);
 
     // Set gpio 4 output value
-    gpio.setValue(4, GPIO::LOW);
+    gpio.setValue(4, GPIO::Value::kLow);
 
     // Set gpio 21 input mode
-    gpio.setDirection(21, GPIO::INPUT);
+    gpio.setDirection(21, GPIO::Direction::kInput);
 
     // Set gpio 21 bias mode
-    gpio.setPullMode(21, GPIO::PULL_UP);
+    gpio.setPullMode(21, GPIO::PullMode::kPullUp);
 
     // Get current 21 value
     auto current = gpio.getValue(21);
     switch (current) {
-        case GPIO::Value::HIGH:
-            std::cout << "21 is high now\n";
-            break;
-        case GPIO::Value::LOW:
+        case GPIO::Value::kLow:
             std::cout << "21 is low now\n";
+            break;
+        case GPIO::Value::kHigh:
+            std::cout << "21 is high now\n";
             break;
         default:
             break;
@@ -72,11 +71,11 @@ int main(int argc, char *argv[]) {
         std::cin >> input;
         if (input == 'y') {
             std::cout << "switch to on\n";
-            gpio.setValue(4, GPIO::Value::HIGH);
+            gpio.setValue(4, GPIO::Value::kHigh);
         } else if (input == 'n') {
             std::cout << "switch to off\n";
             std::cout << "n\n";
-            gpio.setValue(4, GPIO::Value::LOW);
+            gpio.setValue(4, GPIO::Value::kLow);
         } else if (input == 'h') {
             std::cout << help;
         } else if (input == 'q') {

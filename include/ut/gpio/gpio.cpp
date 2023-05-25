@@ -42,25 +42,24 @@ GPIO::~GPIO() {
  * Methods
  *****************************************************************************/
 
-void GPIO::open(const std::string& dev) {
+GPIO::Opcode GPIO::open(const std::string& dev) {
     std::unique_lock lock(mOpenCloseMutex);
 
     // Check opening
-    if (mFd) {
-        throw std::runtime_error("Device already open");
+    if (mFd != -1) {
+        return Opcode::kAlreadyOpen;
     }
 
     // Create pipe
     int ret = pipe(mPipe);
     if (ret == -1) {
-        throw std::runtime_error("pipe(...) failed");
+        return Opcode::kSyscallError;
     }
 
     // Open device
     mFd = ::open(dev.c_str(), O_RDWR);
     if (mFd == -1) {
-        mFd = 0;
-        throw std::runtime_error("open(...) failed");
+        return Opcode::kSyscallError;
     }
 
     mPfds.clear();
@@ -68,6 +67,8 @@ void GPIO::open(const std::string& dev) {
 
     mRunning = true;
     mPollingThread = new std::thread(&GPIO::polling, this);
+
+    return Opcode::kSuccess;
 }
 
 void GPIO::close() {
@@ -90,7 +91,7 @@ void GPIO::close() {
 
     mPipe[0] = 0;
     mPipe[1] = 0;
-    mFd = 0;
+    mFd = -1;
 }
 
 /******************************************************************************
@@ -98,8 +99,8 @@ void GPIO::close() {
  *****************************************************************************/
 
 GPIO::Value GPIO::getValue(int pin) {
-    if (mFd == 0) {
-        throw std::runtime_error("Device not open");
+    if (mFd == -1) {
+        return Value::kIdle;
     }
 
     struct gpio_v2_line_values lineValues;
@@ -108,23 +109,23 @@ GPIO::Value GPIO::getValue(int pin) {
 
     int ret = ioctl(mFdsByPins[pin], GPIO_V2_LINE_GET_VALUES_IOCTL, &lineValues);
     if (ret == -1) {
-        std::runtime_error("ioctl(...) failed");
+        return Value::kIdle;
     }
     
     if (lineValues.bits) {
-        return HIGH;
+        return Value::kHigh;
     }
-    return LOW;
+    return Value::kLow;
 }
 
-void GPIO::setValue(int pin, Value value) {
-    if (mFd == 0) {
-        throw std::runtime_error("Device not open");
+GPIO::Opcode GPIO::setValue(int pin, Value value) {
+    if (mFd == -1) {
+        return Opcode::kDeviceNotOpen;
     }
 
     if (mFdsByPins.find(pin) == mFdsByPins.end() 
-        || mDirectionsByPins[pin] != OUTPUT) {
-        throw std::runtime_error("Pin is not configured as an output");
+        || mDirectionsByPins[pin] != Direction::kOutput) {
+        return Opcode::kPinNotOutput;
     }
 
     struct gpio_v2_line_config config;
@@ -133,33 +134,35 @@ void GPIO::setValue(int pin, Value value) {
     config.flags = GPIO_V2_LINE_FLAG_OUTPUT;
 
     switch (value) {
-    case LOW:
+    case Value::kLow:
         config.flags &= ~GPIO_V2_LINE_FLAG_ACTIVE_LOW;
         break;
 
-    case HIGH:
+    case Value::kHigh:
         config.flags |= GPIO_V2_LINE_FLAG_ACTIVE_LOW;
         break;
     default:
-        throw std::runtime_error("Invalid argument value");
+        return Opcode::kInvalidValue;
     }
 
     int ret = ioctl(mFdsByPins[pin], GPIO_V2_LINE_SET_CONFIG_IOCTL, &config);
     if (ret == -1) {
-        throw std::runtime_error("ioctl(...) failed");
+        return Opcode::kSyscallError;
     }
+
+    return Opcode::kSuccess;
 }
 
-void GPIO::setDirection(int pin, Direction mode) {
-    if (mFd == 0) {
-        throw std::runtime_error("Device not open");
+GPIO::Opcode GPIO::setDirection(int pin, Direction mode) {
+    if (mFd == -1) {
+        return Opcode::kDeviceNotOpen;
     }
 
     if (mFdsByPins.find(pin) != mFdsByPins.end()) {
         // Send "soft" interrupt to pause polling thread
         std::unique_lock lock(mInterruptMutex);
         char code = '0';
-        write(mPipe[1], &code, sizeof(char));
+        write(mPipe[1], &code, sizeof(code));
 
         mPfdsMutex.lock();
         for (size_t i = 0; i < mPfds.size(); ++i) {
@@ -184,24 +187,21 @@ void GPIO::setDirection(int pin, Direction mode) {
     request.num_lines = 1;
 
     switch (mode) {
-    case INPUT:
+    case Direction::kInput:
         request.config.flags = 
             GPIO_V2_LINE_FLAG_INPUT | 
             GPIO_V2_LINE_FLAG_EDGE_RISING | 
             GPIO_V2_LINE_FLAG_EDGE_FALLING;
         break;
 
-    case OUTPUT:
+    case Direction::kOutput:
         request.config.flags = GPIO_V2_LINE_FLAG_OUTPUT;
-        break;
-    default:
-        throw std::runtime_error("GPIO::SET_DIRECTION: Invalid direction");
         break;
     }
 
     int ret = ioctl(mFd, GPIO_V2_GET_LINE_IOCTL, &request);
     if (ret == -1 || request.fd == -1) {
-        throw std::runtime_error("ioctl(...) failed");
+        return Opcode::kSyscallError;
     }
 
     // Store info about pin
@@ -210,8 +210,8 @@ void GPIO::setDirection(int pin, Direction mode) {
     mDirectionsByPins[pin] = mode;
 
     // Add polling if input
-    if (mode != Direction::INPUT) {
-        return;
+    if (mode != Direction::kInput) {
+        return Opcode::kSuccess;
     }
 
     // Send "soft" interrupt to pause polling thread
@@ -222,16 +222,18 @@ void GPIO::setDirection(int pin, Direction mode) {
     mPfdsMutex.lock();
     mPfds.push_back( pollfd { request.fd, POLLIN } );
     mPfdsMutex.unlock();
+
+    return Opcode::kSuccess;
 }
 
-void GPIO::setPullMode(int pin, Type mode) {
-    if (mFd == 0) {
-        throw std::runtime_error("Device not open");
+GPIO::Opcode GPIO::setPullMode(int pin, PullMode mode) {
+    if (mFd == -1) {
+        return Opcode::kDeviceNotOpen;
     }
 
     if (mFdsByPins.find(pin) == mFdsByPins.end()
-        || mDirectionsByPins[pin] != Direction::INPUT) {
-        throw std::runtime_error("Pin is not configured as an input");
+        || mDirectionsByPins[pin] != Direction::kInput) {
+        return Opcode::kPinNotInput;
     }
 
     struct gpio_v2_line_config config;
@@ -243,19 +245,20 @@ void GPIO::setPullMode(int pin, Type mode) {
         GPIO_V2_LINE_FLAG_EDGE_FALLING;
 
     switch (mode) {
-    case Type::PULL_UP:
+    case PullMode::kPullUp:
         config.flags |= GPIO_V2_LINE_FLAG_BIAS_PULL_UP;
         break;
-
-    case Type::PULL_DOWN:
+    case PullMode::kPullDown:
         config.flags |= GPIO_V2_LINE_FLAG_BIAS_PULL_DOWN;
         break;
     }
 
     int ret = ioctl(mFdsByPins[pin], GPIO_V2_LINE_SET_CONFIG_IOCTL, &config);
     if (ret == -1) {        
-        throw std::runtime_error("ioctl(...) failed");
+        return Opcode::kSyscallError;
     }
+
+    return Opcode::kSuccess;
 }
 
 /******************************************************************************
@@ -304,11 +307,11 @@ void GPIO::polling() {
 
             switch (event.id) {
             case GPIO_V2_LINE_EVENT_RISING_EDGE:
-                onInputChanged(mPinsByFds[mPfds[i].fd], HIGH);
+                onInputChanged(mPinsByFds[mPfds[i].fd], Value::kHigh);
                 break;
 
             case GPIO_V2_LINE_EVENT_FALLING_EDGE:
-                onInputChanged(mPinsByFds[mPfds[i].fd], LOW);
+                onInputChanged(mPinsByFds[mPfds[i].fd], Value::kLow);
                 break;
             }
         }
