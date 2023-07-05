@@ -136,7 +136,7 @@ protected:
 
     bool mRunning = false;
     int mFd = -1;
-    int mPipe[2] = { 0, 0 };
+    int mPipe[2] = { -1, -1 };
     std::map<int, Direction> mDirectionsByPins;
     std::map<int, int> mFdsByPins; /// for quick access to GPIO num from polling
     std::map<int, int> mPinsByFds; /// for quick access to GPIO num from polling

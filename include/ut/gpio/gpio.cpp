@@ -45,8 +45,7 @@ GPIO::~GPIO() {
 GPIO::Opcode GPIO::open(const std::string& dev) {
     std::unique_lock lock(mOpenCloseMutex);
 
-    // Check opening
-    if (mFd != -1) {
+    if (mRunning) {
         return Opcode::kAlreadyOpen;
     }
 
@@ -59,6 +58,10 @@ GPIO::Opcode GPIO::open(const std::string& dev) {
     // Open device
     mFd = ::open(dev.c_str(), O_RDWR);
     if (mFd == -1) {
+        ::close(mPipe[0]);
+        ::close(mPipe[1]);
+        mPipe[0] = -1;
+        mPipe[1] = -1;
         switch (errno) {
         case ENOENT:
             return Opcode::kDeviceNotFound;
@@ -79,6 +82,9 @@ GPIO::Opcode GPIO::open(const std::string& dev) {
 void GPIO::close() {
     std::unique_lock lock(mOpenCloseMutex);
 
+    if (!mRunning) {
+        return;
+    }
     mRunning = false;
 
     char code = '0';
@@ -89,6 +95,11 @@ void GPIO::close() {
     }
     delete mPollingThread;
     mPollingThread = nullptr;
+
+    for (const auto& pfd : mPfds) {
+        ::close(pfd.fd);
+    }
+    mPfds.clear();
 
     ::close(mPipe[0]);
     ::close(mPipe[1]);
@@ -124,12 +135,12 @@ GPIO::Value GPIO::getValue(int pin) {
 }
 
 GPIO::Opcode GPIO::setValue(int pin, Value value) {
-    if (mFd == -1) {
+    if (!mRunning) {
         return Opcode::kDeviceNotOpen;
     }
 
-    if (mFdsByPins.find(pin) == mFdsByPins.end() 
-        || mDirectionsByPins[pin] != Direction::kOutput) {
+    if (mFdsByPins.find(pin) == mFdsByPins.end() || 
+        mDirectionsByPins[pin] != Direction::kOutput) {
         return Opcode::kPinNotOutput;
     }
 
@@ -159,7 +170,7 @@ GPIO::Opcode GPIO::setValue(int pin, Value value) {
 }
 
 GPIO::Opcode GPIO::setDirection(int pin, Direction mode) {
-    if (mFd == -1) {
+    if (!mRunning) {
         return Opcode::kDeviceNotOpen;
     }
 
@@ -232,12 +243,12 @@ GPIO::Opcode GPIO::setDirection(int pin, Direction mode) {
 }
 
 GPIO::Opcode GPIO::setPullMode(int pin, PullMode mode) {
-    if (mFd == -1) {
+    if (!mRunning) {
         return Opcode::kDeviceNotOpen;
     }
 
-    if (mFdsByPins.find(pin) == mFdsByPins.end()
-        || mDirectionsByPins[pin] != Direction::kInput) {
+    if (mFdsByPins.find(pin) == mFdsByPins.end() || 
+        mDirectionsByPins[pin] != Direction::kInput) {
         return Opcode::kPinNotInput;
     }
 
