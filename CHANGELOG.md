@@ -6,7 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## [0.0.5] - 2023-05-05
+## [0.0.6] 2023-07-05
+### Fixed
+- The leakage of descriptors for pins configured as outputs.
+
+## [0.0.5] - 2023-07-05
 ### Fixed
 - The leakage of descriptors for pins configured as inputs.
 - Repeated closing of descriptors when destroying a GPIO object that has 

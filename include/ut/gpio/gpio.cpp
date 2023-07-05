@@ -96,8 +96,8 @@ void GPIO::close() {
     delete mPollingThread;
     mPollingThread = nullptr;
 
-    for (const auto& pfd : mPfds) {
-        ::close(pfd.fd);
+    for (auto it = mPinsByFds.begin(); it != mPinsByFds.end(); ++it) {
+        ::close(it->first);
     }
     mPfds.clear();
 
